@@ -209,6 +209,29 @@ module Diamond where
 
   from : ⟦ ⨂ (⊤ ◃ const (s .S)) s ⟧ X → Ar s X
   from ((tt , f) , a) i = a (λ a₁ → i (f a₁))
+
+
+-- The notion of a generalised containers
+module GenCon where
+  -- TODO: fix levels, I am very loose with them
+  open import Agda.Builtin.Equality
+  
+  record Con′ : Set₂ where
+    constructor _◃′_
+    field
+      S : Set₁
+      P : S → Set
+
+  ⟦_⟧′ : Con′ → Set → Set₁
+  ⟦ A ◃′ B ⟧′ X = Σ A λ a → B a → X
+
+  Ar′ = Con ◃′ Pi
+
+  to : (x : ⟦ Ar′ ⟧′ X) → Ar (x .proj₁) X
+  to x = x .proj₂
+
+  from : Ar s X → ⟦ Ar′ ⟧′ X
+  from {s = s} a = s , a
   
 
 -- Here we use our definitions to compute simple matmul.
