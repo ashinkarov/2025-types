@@ -68,6 +68,8 @@ transpose a sp = a λ { (inl i) → sp (inr i) ; (inr j) → sp (inl j) }
 kron : Ar s X → Ar p Y → Ar (s ⊕ p) (X × Y)
 kron a b = unnest λ i j → a i , b j
 
+
+
 -- Non-blocked matrix multiplication with on generalised shapes.
 module Naive
   --(sum : ∀ {X s} → (X → X → X) → X → Ar s X → X)
@@ -91,6 +93,73 @@ record ⊤ : Set where
 
 Pi : Con → Set
 Pi (A ◃ B) = Π A B
+
+module Properties where
+
+  open import Function
+  open import Relation.Binary.PropositionalEquality
+
+  postulate
+    ext : {Y : X → Set} {f g : (x : X) → Y x} → (∀ i → f i ≡ g i) → f ≡ g
+
+  -- Ugh, this is a funny notation, as here we kind of prove that
+  -- array shapes 1 + s = s and 0 + s = s, which means that 1 = 0.
+  -- which is true in a sense that Pi 𝟙 ≅ Pi 𝟘, because 1^1 = 0^0.
+
+  infix 2 _≅ₐ_
+  record _≅ₐ_ (s p : Con) : Set where
+    constructor mk-≅
+    field
+      to : Ar s X → Ar p X
+      from : Ar p X → Ar s X
+      to∘from : (a : Ar p X) → to (from a) ≡ a
+      from∘to : (a : Ar s X) → from (to a) ≡ a
+
+  1+s≅s : 𝟙 ⊕ s ≅ₐ s
+  1+s≅s = mk-≅ out into (ext ∘ out∘into) (ext ∘ into∘out)
+    where
+      out : Ar (𝟙 ⊕ s) X → Ar s X
+      out a f = a λ { (inl _) → _; (inr i) → f i }
+
+      into : Ar s X → Ar (𝟙 ⊕ s) X
+      into a f = a (f ∘ inr)
+
+      out∘into : ∀ (a : Ar s X) i → out (into a) i ≡ a i
+      out∘into a i = refl
+
+      into∘out : ∀ (a : Ar (𝟙 ⊕ s) X) i → into (out a) i ≡ a i
+      into∘out a f = cong (a $_) (ext λ { (inl i) → refl; (inr i) → refl })
+
+  0+s≅s : 𝟘 ⊕ s ≅ₐ s
+  0+s≅s = mk-≅ out₀ into₀ (ext ∘ out₀∘into₀) (ext ∘ into₀∘out₀)
+    where
+      out₀ : Ar (𝟘 ⊕ s) X → Ar s X
+      out₀ a f = a λ { (inr i) → f i }
+
+      into₀ : Ar s X → Ar (𝟘 ⊕ s) X
+      into₀ a f = a (f ∘ inr)
+
+      out₀∘into₀ : ∀ (a : Ar s X) i → out₀ (into₀ a) i ≡ a i
+      out₀∘into₀ a i = refl
+
+      into₀∘out₀ : ∀ (a : Ar (𝟘 ⊕ s) X) i → into₀ (out₀ a) i ≡ a i
+      into₀∘out₀ a f = cong (a $_) (ext λ { (inr i) → refl })
+
+  0=1 : 𝟘 ≅ₐ 𝟙
+  0=1 = mk-≅ out into (ext ∘ out∘into) (ext ∘ into∘out)
+    where
+      out : Ar 𝟘 X → Ar 𝟙 X
+      out a f = a (λ ())
+      
+      into : Ar 𝟙 X → Ar 𝟘 X
+      into a f = a (λ _ → _)
+
+      out∘into : (a : Ar 𝟙 X) → ∀ i → out (into a) i ≡ a i
+      out∘into a i = cong (a $_) (ext λ i → refl)
+
+      into∘out : (a : Ar 𝟘 X) → ∀ i → into (out a) i ≡ a i
+      into∘out a i = cong (a $_) (ext λ { () })
+
 
 -- Definition of *inductive* container reshapes
 module Reshapes where
@@ -209,6 +278,25 @@ module Diamond where
 
   from : ⟦ ⨂ (⊤ ◃ const (s .S)) s ⟧ X → Ar s X
   from ((tt , f) , a) i = a (λ a₁ → i (f a₁))
+
+
+module NonRect where
+  open import Data.Nat using (ℕ)
+  open import Data.Fin
+
+  variable
+    m n : ℕ
+  data 𝟚 : Set where
+    tt ff : 𝟚
+
+  ⟦_⟧ : Con → Set → Set
+  ⟦ A ◃ B ⟧ X = Σ A λ a → B a → X
+
+  ex : ⟦ (ℕ × ℕ) ◃ (λ (m , n) → Σ (Fin m) λ i → Σ (Fin n) λ j → i ≤ j) ⟧  ℕ
+  ex = (2 , 3) , λ _ → 1
+
+  ex₁ : Ar (⊤ ◃ λ _ → Σ (Fin m × Fin n) (λ (i , j) → j ≤ i))  ℕ
+  ex₁ i = 1
 
 
 -- The notion of a generalised containers
